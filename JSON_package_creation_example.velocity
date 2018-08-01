@@ -1,0 +1,211 @@
+#macro (getPopulatedJsonInc)
+##
+## callingSystem is static
+##
+    #set ($callingSystem = '11222')
+##
+## Set dynamic IPradar values - these will use the ticket data
+##   
+    #set ($shortDescription = "$!model.radarTicket.description.replaceAll('\s+', ' ')")
+    #set ($vendorTicketNumber = "$!model.radarTicket.ipimTicketMapping.ipimTicket.id")
+    #set ($assignmentGroup = "$!model.radarTicket.ipimTicketMapping.ipimTicket.getQueue().getDescription()")
+##
+## Set the description
+##
+    #set ($descIPradarCustomField = "$!model.getTicketAttributeValue('description')")
+## May not be necessary, as create should be IPC -> SNOW only
+    #if ($descIPradarCustomField != '')
+        ## Incident created from SNOW
+        #set ($descRaw = "$descIPradarCustomField")
+    #else
+        ## Incident created from IPC
+        #set ($descRaw = "$model.radarTicket.note")
+    #end
+    #set ($description = "$velocityEscapeTool.javascript($descRaw)")
+##
+## Set the workNotes
+##
+##    #if ($model.lastLog.getAction() == "OPEN")
+##        ## CREATE
+##        #if ($description != '')
+##            ## CREATE from SNOW
+##            #set ($workNotes = "$description")
+##        #else
+##            ## CREATE from IPC
+##            #set ($workNotes = "$velocityEscapeTool.javascript($model.radarTicket.note)")
+##        #end
+##    #else
+        ## UPDATE
+##        #set ($wnRaw = "$model.lastLog.getTicketAttributeValue('Comment')")
+##        #set ($workNotes = "$velocityEscapeTool.javascript($wnRaw)")
+##    #end
+##
+## Set IPradar priority
+##  ## This appears unnecessary, however leaving it in for the time being, because Radar Priority.
+    #set($ipradarPriority="other")
+    #if ($model.radarTicket.criticality.getName())
+        #set($ipradarPriority=$model.radarTicket.criticality.getName())
+    #end
+##
+## Set Custom IPradar field values
+##
+    #set($cFieldMap = $model.radarTicket.customFields)
+    ## start of customField loop
+    #foreach ($mapEntry in $cFieldMap.entrySet())
+        ## assignmentGroup derived from $model.radarTicket.ipimTicketMapping.ipimTicket.getQueue().getDescription()
+        ###if ($mapEntry.key.getName().equals('assignmentGroup'))
+        ##    #set($assignmentGroup = $mapEntry.value.getValueAsString())
+        ###end
+        #if ($mapEntry.key.getName().equals('description'))
+            ###set ($description = $velocityEscapeTool.xml($mapEntry.value.getValueAsString()))
+            #set ($description = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('parentIncident'))
+            #set($parentIncident = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('causedByChange'))
+            #set($causedByChange = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('assignedTo'))
+            #set($assignedTo = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('reportedSource'))
+            #set($reportedSource = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('category'))
+            #set($category = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('subCategory'))
+            #set($subCategory = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('location'))
+            #set($location = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('contactType'))
+            #set($contactType = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('impact'))
+            #set($impact = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('urgency'))
+            #set($urgency = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('state'))
+            #set($state = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('configurationItem'))
+            #set($configurationItem = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('affectedCis'))
+            #set($affectedCis= $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('resolutionSteps'))
+            #set($resolutionSteps = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('resolutionCategory'))
+            #set($resolutionCategory = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('resolutionSubcategory'))
+            #set($resolutionSubcategory = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('resolutionCode'))
+            #set($resolutionCode = $mapEntry.value.getValueAsString())
+        #end
+         #if ($mapEntry.key.getName().equals('resolvedBy'))
+            #set($resolvedBy = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('incidentSubState'))
+            #set($subState = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('pendingReason'))
+            #set($pendingReason = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('caller'))
+            #set($caller = $mapEntry.value.getValueAsString())
+        #end
+        #if ($mapEntry.key.getName().equals('callerNumber'))
+            #set($callerNumber = $mapEntry.value.getValueAsString())
+        #end
+    #end
+##
+## Provide default values if nothing is defined to
+## ensure fullfillment of SNOW API requirements
+##
+    #if (!$caller)
+        #set ($caller = 'IPsoft Ipcenter Automation')
+    #end
+    #if (!$callerNumber)
+        #set ($callerNumber = '(000)000-0000')
+    #end
+    #if (!$reportedSource)
+        #set ($reportedSource = 'IPsoft IPcenter')
+    #end
+    #if (!$assignedTo)
+        #set ($assignedTo = 'IPsoft Ipcenter Automation')
+    #end
+    #if (!$configurationItem)
+        #set ($configurationItem = 'ServerABC')
+    #end
+##  ##
+## Payload for CREATE/UPDATE
+##  ##
+{
+#if ($model.lastLog.getAction() == "OPEN")
+    "caller": "$!caller",
+    "callerNumber": "$!callerNumber",
+    "shortDescription": "$!shortDescription",
+    "description": "$!description",
+    "configurationItem": "$!configurationItem",
+    "vendorTicketNumber": "$!vendorTicketNumber",
+#end
+    "reportedSource": "$!reportedSource",
+    "assignmentGroup": "$!assignmentGroup",
+#if ($parentIncident)
+    "parentIncident": "$!parentIncident",
+#end
+#if ($causedByChange)
+    "causedByChange": "$!causedByChange",
+#end
+#if ($category)
+    "category": "$!category",
+#end
+#if ($subCategory)
+    "subCategory": "$!subCategory",
+#end
+#if ($location)
+    "location": "$!location",
+#end
+#if ($contactType)
+    "contactType": "$!contactType",
+#end
+#if ($impact)
+    "impact": "$!impact",
+#end
+#if ($urgency)
+    "urgency": "$!urgency",
+#end
+#if ($state)
+    "state": "$!state",
+#end
+#if ($workNotes)
+    "workNotes": "$!workNotes",
+#end
+#if ($assignedTo != '')
+    "assignedTo": "$!assignedTo",
+#end
+#if ($model.radarTicket.status == "RESOLVED" && $state == 'Resolved')
+    "resolutionSteps": "$!resolutionSteps",
+    "resolutionCategory": "$!resolutionCategory",
+    "resolutionSubCategory": "$!resolutionSubcategory",
+    "resolutionCode": "$!resolutionCode",
+    "subState": "$!subState",
+    ##"resolvedBy": "$!resolvedBy",
+#end
+#if ($state == 'Pending')
+    "pendingReason": "$!pendingReason",
+#end
+## callingSystem is constant. Leaving it at the end to ensure valid JSON
+    "callingSystem": "$!callingSystem"
+}
+##
+#end
