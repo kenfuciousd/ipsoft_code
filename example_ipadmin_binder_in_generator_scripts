@@ -1,0 +1,131 @@
+//ci = parent.currentScript();
+ci = me.getCi();
+
+
+ctxHelper.getLog().info("update CI: "+ ci);
+
+if (undefined!=ci) {
+
+	ctxHelper.setCiAttribute(ci, 'Type', 'Server');
+	ctxHelper.setCiAttribute(ci, 'OS Type', 'Windows');
+	ctxHelper.setCiAttribute(ci, 'Status', 'Active');
+	ctxHelper.setCiAttribute(ci, 'IPsoft Managed', 'false');
+	ctxHelper.setCiAttribute(ci, 'Monitored', 'true'); 
+	ctxHelper.setCiAttribute(ci, 'Type', 'Server');
+	ctxHelper.setCiAttribute(ci, 'OS Type', 'Windows');
+
+ctxHelper.getLog().info("\nWe have Resources!\n");
+
+var propMap = ctxHelper.getMap();
+var attrMap = ctxHelper.getMap();
+propMap.put('type','processor');
+propMap.put('state','ACTIVE|PENDING');
+attrMap.put('numberofcores','.+');
+
+// get processor resources
+var procs = ctxHelper.getResourcesMatchingAll(propMap, attrMap).toArray();
+
+// clear maps
+var propMap = ctxHelper.getMap();
+var attrMap = ctxHelper.getMap();
+propMap.put('type','physicalmemory');
+propMap.put('state','ACTIVE|PENDING');
+attrMap.put('capacity','.+');
+
+// get memory resources
+var memRes = ctxHelper.getResourcesMatchingAll(propMap, attrMap).toArray();
+
+// get manufacturer resource
+var ciManufacturer = ci.getAttributeByName("Manufacturer");
+
+var numCPU = 0;
+var numMEM = 0;
+
+
+var osses = me.getOwningDevice().getResourcesByType('os').toArray();
+   for (var i = 0, t = osses.length; i < t; i++) {
+      var res = osses[i]; 
+      ctxHelper.setCiAttribute(me.getCi(), 'OS Version', res.findAttribute("caption"));
+     }
+//ctxHelper.setCiAttribute(me.getCi(), 'OS Version', res.findAttribute("caption") + " " + res.findAttribute("osarchitecture") + " " + res.findAttribute("csdversion"));
+
+ctxHelper.getLog().info("Osses: "+ osses.length);
+
+
+var products = me.getOwningDevice().getResourcesByType('product').toArray();
+   for (var i = 0, t = products.length; i < t; i++) {
+      var res = products[i];
+      var baMap = ctxHelper.getMap();
+      baMap.put('model', 'Model Number');
+      ctxHelper.bindToCi(res, me.getCi(), ctxHelper.getMap(), baMap);
+      ctxHelper.setCiAttribute(me.getCi(), 'Model Number', String(res.findAttribute('model')));
+      ctxHelper.setCiAttribute(me.getCi(), 'Make', String(res.findAttribute('model')));
+      if (String(res.findAttribute('model')).match(/ProLiant.*/i)){
+           ctxHelper.setCiAttribute(me.getCi(), 'Manufacturer', 'HP');
+      }else if (String(res.findAttribute('model')).match(/PowerEdge.*/i)){
+           ctxHelper.setCiAttribute(me.getCi(), 'Manufacturer', 'Dell');
+        }else if (String(res.findAttribute('model')).match(/VMware.*/i)){
+           ctxHelper.setCiAttribute(me.getCi(), 'Manufacturer', 'VMware');
+       }
+   }
+
+
+// for processors
+	for (var i = 0; i < procs.length; i++) {
+		ctxHelper.getLog().info("hitting processor testing " + (i+1) + " of " + procs.length + "\n");
+		var res = procs[i];
+		var ciCPU = res.findAttribute("numberofcores");   // type processor: attribute numberofcores
+		ctxHelper.getLog().info("CPU Report: " + ciCPU);
+		if(ciCPU < 1){
+			ciCPU = 1;
+		}
+		
+		numCPU = numCPU + parseInt(ciCPU);
+		
+    }
+
+		ctxHelper.getLog().info("Testing for Memory");
+	// if it's memory:
+	for (var i = 0; i < memRes.length; i++) {
+		ctxHelper.getLog().info("hitting memory testing\n");
+		var res = memRes[i];
+		var ciMEM = res.findAttribute("capacity");  // physicalmemory: capacity   // getresources by type.. 
+		ctxHelper.getLog().info("Original Mem is *** "+ ciMEM + " ***\n");
+		ciMEM = ciMEM / (1073741824);
+		numMEM = numMEM + ciMEM;
+	}
+
+ctxHelper.getLog().info("Manufacturer is " + ciManufacturer + ", CPU is " + String(numCPU) + ", and MEM is " + String(numMEM) + "GB\n");
+if (numCPU < 1 ) {
+ numCPU+=1;
+}
+ctxHelper.setCiAttribute(me.getCi(),'Cores', numCPU);
+ctxHelper.setCiAttribute(me.getCi(),'Memory', numMEM);
+   
+   if ( ciManufacturer.match(/.*VMware|VMWARE.*/i) ){
+			if(numCPU <= 1 && numMEM <= 4){
+				ctxHelper.setCiAttribute(me.getCi(), 'Server Size', 'Small');
+			}
+			else if( numCPU <= 2 && numMEM <= 8 ){
+				ctxHelper.setCiAttribute(me.getCi(), 'Server Size', 'Medium');
+			}
+			else 
+				
+				ctxHelper.setCiAttribute(me.getCi(), 'Server Size', 'Large');
+
+		}
+		else { 
+			if( numCPU <= 8 && numMEM <= 8 ){
+				ctxHelper.setCiAttribute(me.getCi(), 'Server Size', 'Small');
+			}
+			else if ( numCPU <= 16 && numMEM <= 32 ){
+				ctxHelper.setCiAttribute(me.getCi(), 'Server Size', 'Medium');
+			}
+			else
+				ctxHelper.setCiAttribute(me.getCi(), 'Server Size', 'Large');
+
+	   
+		}
+
+}
+ci;
