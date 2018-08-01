@@ -1,0 +1,217 @@
+var propMap = ctx.getMap();
+var attrMap = ctx.getMap();
+
+propMap.put('type', 'bgppeer');
+attrMap.put('bgppeerstate', 'established');
+
+var resources = ctx.getMatchingResources(propMap, attrMap).toArray();
+ctx.getLog("failLog").info("intutil- Resources are " + resources + " and there are " + resources.length + "of them");
+
+if (resources.length > 0) {
+  90;
+} else {
+0;
+}
+---
+//set the correct snmp connection
+var sc = serviceTemplate.newFromTemplate();
+var propMap = ctx.getMap();
+var attrMap = ctx.getMap();
+propMap.put('type', 'bgppeer');
+attrMap.put('bgppeerremoteaddr', '.*');
+attrMap.put('bgppeerstate', 'established');
+propMap.put('state', '(ACTIVE|PENDING)');
+var resources = ctx.getMatchingResources(propMap, attrMap).toArray();
+ctx.getLog("bgp-resources").info("intutil- Resources are " + resources + " and there are " + resources.length + "of them");
+for (var i = 0, t=resources.length; i < t; i++) {
+   var res = resources[i];
+   var conn = res.getConnection();
+   var sc = serviceTemplate.newFromTemplate();
+   sc.bind('discover', res.getAttributes());
+   if (undefined!=conn) {
+       var type = conn.getType();
+       if (undefined!=type && type.equals(net.ipsoft.ipcenter.ipdiscover.domain.Connection.ConnectionType.Snmp)) {
+          sc.setConnection(conn);
+       }
+   }
+resultList.add(sc);
+}
+ctx.getLog("LOGGER").info("Type:"+type);
+ctx.getLog("LOGGER").info("Connection:"+conn);
+------------
+
+//This will generate interface status service checks on up/up VLANS as the exclusions in the other status checks did not work with these
+
+var propMap = ctx.getMap();
+var attrMap = ctx.getMap();
+propMap.put('type', 'interfaces');
+attrMap.put('admin_status', 'up');
+attrMap.put('status', 'up');
+// Jason Fogel owns all problems caused by the following change
+// attrMap.put('ifname', '\\S+');
+attrMap.put('ifname', '.+');
+var resources = ctx.getMatchingResources(propMap, attrMap).toArray();
+for (var i = 0, t = resources.length; i < t; i++) {
+   var res = resources[i];
+// If you want to debug, uncomment the following to see which interfaces make it to this loop
+//   ctx.getLog("failLog").error(res.getAttributes().get("ifname"));
+
+
+//the following will exclude interfaces that are null, loopbacks, or unrouted
+   if (res.getAttributes().get("ifname").matches("(?i).*(Null|Loopback).*")) {
+      continue;
+   }
+
+//the following will exclude interfaces that have cdp information
+   if (res.getAttributes().containsKey("cdp_id")) {
+      continue;
+   }
+
+
+
+  if  (res.getAttributes().containsKey("ifname") && null != res.getAttributes().get("ifname") && (! res.getAttributes().get("ifname").matches(".*Vlan.*") ) ) {
+     ctx.getLog("DROP-NOTIFY VLAN").error("Found ifname:  "+res.getAttributes().get("ifname"));
+     continue;
+   }
+
+
+   var sc = serviceTemplate.newFromTemplate();
+   sc.bind('discover', res.getAttributes());
+   // The following removes illegal special chars from the service name and description
+   // The first ".replaceAll()" changes all non-standard chars into a single space
+   // The second ".replaceAll()" changes multiple whitespace into a single space
+   sc.setName(sc.getName().replaceAll("[^\\w\\s:\/-]", " ").replaceAll("\\s{2,}", " "));
+   sc.setDescription(sc.getDescription().replaceAll("[^\\w\\s:\/-]", " ").replaceAll("\\s{2,}", " "));
+   // End of special character cleanup code
+   resultList.add(sc);
+
+
+
+
+------------
+
+old matcher
+
+--------------
+
+//Valid Discover Data?
+if (ctx.hasIPdiscoverData()) {
+	var ciname = ctx.getCi().getName();
+	var propMap = ctx.getMap();
+	var attrMap = ctx.getMap();
+	propMap.put('type', 'bgppeer');
+	attrMap.put('adminstatus', 'start');
+	attrMap.put('state', 'established');
+	var resources = ctx.getMatchingResources(propMap, attrMap).toArray();
+	//Actually have Resources?
+	if (resources.length > 0) {
+		// ignore hosts without valid data
+		//if (ciname.match(/apdca-rch-rt03.dhl.com.dhl/) || ciname.match(/prgdcb-oc-sw01.dhl/)) {
+
+                // NEWBIE'S NOTE: this check has been commented out from the original template, uncertain what, exactly, this is checking.. so..
+                // until then, if there are resources, return 1.  Will need to return to this later.
+
+		//	0.0;
+		//} else {
+			1.0;
+		//}
+	} else {
+		0.0
+	}
+} else {
+	0.0;
+}
+
+----------
+old generator
+---------------
+
+//NOOB NOTE: this appears correct, no specific references..
+
+//set the correct snmp connection
+var sc = serviceTemplate.newFromTemplate();
+var propMap = ctx.getMap();
+var attrMap = ctx.getMap();
+propMap.put('type', 'os');
+var resources = ctx.getMatchingResources(propMap, attrMap).toArray();
+for (var i = 0, t=resources.length; i < t; i++) {
+	var res = resources[i];
+	var conn = res.getConnection();
+	if (undefined!=conn) {
+		var type = conn.getType();
+		if (undefined!=type && type.equals(net.ipsoft.ipcenter.ipdiscover.domain.Connection.ConnectionType.Snmp)) {
+			sc.setConnection(conn);
+		}
+	}
+}
+var propMap2 = ctx.getMap();
+var attrMap2 = ctx.getMap();
+var bgp_peer = "";
+propMap2.put('type', 'bgppeer');
+attrMap2.put('adminstatus', 'start');
+attrMap2.put('state', 'established');
+var resources2 = ctx.getMatchingResources(propMap2, attrMap2).toArray();
+for (var b = 0, c = resources2.length; b < c; b++) {
+	var res2 = resources2[i];
+	bgp_peer = bgp_peer + res2.getAttributes().get("id") + ",";
+}
+bgp_peer.substring(0, bgp_peer.length - 1);
+var sc = serviceTemplate.newFromTemplate();
+var myMap = ctx.getMap();
+myMap.put("peers", bgp_peer);
+sc.bind("peer_list", myMap);
+ctx.getLog("LOGGER").info("Peers:"+bgp_peer);
+//ctx.getLog("LOGGER").info("Connection:"+conn);
+resultList.add(sc);
+
+
+//Start
+var ht = hostTemplate.newFromTemplate();
+
+//Pull Host Down Priority from CMDB
+var ci = ctx.getCi();
+var cmdb_pri = ci.getAttributeByName("Priority");
+//var cmdb_queue = ctx.findQueue("client-general"); // default
+var sitename = ci.getOutgoingAssociationsForType(ipcmdbService.getAssociationTypeDao().findByName("Device Site")).get(0).getTargetCI();
+ctx.getLog("INFO").info("for queue, site is "+ sitename);
+sitename = sitename.toString();
+var loc = sitename.substring(9,12); // should be the three letter site designation
+loc = loc.toUpperCase();
+
+//var name = ci.getName(); // for critical? 
+
+if (sitename.match(/critical/)){
+	var queueName = "client-"+loc+"-Critical";
+	} else{
+	var queueName = "client-"+loc+"-General";
+	}
+// 
+var cmdb_queue = ctx.findQueue(queueName); // sets the que according to location and criticality
+	
+//var cmdb_queue = ci.getAttributeByName("Queue");
+//ctx.getLog("INFO").info("Queue: " + cmdb_queue + ", Priority: " + cmdb_pri);
+
+//Define Criticality objects
+var critP1 = ctx.findCriticality("P1"); 
+var critP2 = ctx.findCriticality("P2"); 
+var critP3 = ctx.findCriticality("P3"); 
+var critP4 = ctx.findCriticality("P4"); 
+
+//Default to P1 per SOP with customer
+var host_pri = critP1;
+
+//Match possible levels or default to predefined P1
+if (cmdb_pri.match(/P1/)){
+	var host_pri = critP1;
+} else if (cmdb_pri.match(/P2/)){
+	var host_pri = critP3;
+} else if (cmdb_pri.match(/P3/)){
+	var host_pri = critP3;
+} else if (cmdb_pri.match(/P4/)){
+	var host_pri = critP4;
+}
+
+//set the data
+host.setInitialCriticality(host_pri);
+host.setDefaultIPimQueue(cmdb_queue);
+resultList.add(ht);
