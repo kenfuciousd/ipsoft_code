@@ -1,0 +1,116 @@
+// Tivoli Instance Log generator script for **CLIENT REDACTED**
+// Jan '16 - Jason Dyer 
+// 
+// $$ This script reads the discover data for linux/unix processes looking for the Tivoli Service Manager instance
+// $$ REQUIRES: Unix process discover data that contain the McKesson specified TSM path: 
+// $$           /tsm/TSM##/local/log/TSM##_event.log    -- this may be changed in the regex pattern to suit your need.
+// $$ The number is pulled from the discover data, regex'd out and given a variable, which maps to the command parameters
+// $$ for the log file destination in the form:
+// $$           $$TivoliInstance::InstanceLog$$   -- may be changed in the maps and binds
+// $$ 
+// 
+
+var propMap = ctx.getMap();
+var attrMap = ctx.getMap();
+var t = 0; //instantiating so that we don't end up with a null or empty class.
+var tsmLogNums = [];
+
+propMap.put('type', 'filesystem');
+//attrMap.put('args', '.*\/tsm\/TSM\d+\/local\/log\/TSM\d+.*_event.log.*');
+//attrMap.put('command', '.*\/tsm\/TSM.*');
+attrMap.put('mount', ".*TSM.*");
+
+//	 ctx.getLog("LOGGER").info("*ping* Starting script.\n");
+
+// if multiple instances..
+var resources = ctx.getMatchingResources(propMap, attrMap).toArray();
+ctx.getLog("LOGGER").info("Resources length: "+ resources.length);
+//for (var i = 0, t = resources.length; i < t; i++) {
+// ctx.getLog("LOGGER").info("resource found: "+resources[i].toString()+"\n");
+//}
+
+//ctx.getLog("LOGGER").info("*ping* about to go into the if test for resources found.\n");
+	 // error here.. in type casting as a string.... 
+
+var t = 0; //instantiating so that we don't end up with a null or empty class.
+//ctx.getLog("LOGGER").info("*ping*  At instantiation \"t\" is "+t.toString()+"\n");
+if(resources.length){ t = resources.length }
+//ctx.getLog("LOGGER").info("*ping* \"t\" is now: "+t.toString()+"\n");
+
+//ctx.getLog("LOGGER").info("*ping* Entering FOR loop\n");
+  for (var i = 0; i < t; i++) { // seems to be the problem
+//	 ctx.getLog("LOGGER").info("*ping* -- inside for loop\n");
+   var res = resources[i];
+    // variable set to define the tsm instance number.
+   var instanceNum = 0;
+   // create map for variable mapping
+   
+//   the logs are in the form: /tsm/TSM.*/local/log/TSM.*_event.log 
+//	 ctx.getLog("LOGGER").info("  FOUND: "+res.toString());
+
+     // Ignore resources that are not ACTIVE or PENDING
+     if (! res.getState().toString().matches("(ACTIVE|PENDING)")) {
+       continue;
+     }
+	 
+	 // get the instance number
+	 instanceNum = res.toString().match(/TSM\d+/i);
+	 // "match TSM\d+, 1 or more digits, and ignore TSM to return the instance number.
+	 instanceNum = instanceNum.toString().match(/(?:TSM)\d+/);
+	 
+	 // *** logic to check if it's unique in tsmLogNums
+	 for (i = 0; i <= tsmLogNums.length; i++){
+		if ( tsmLogNums.indexOf(this[i]) == -1){
+			ctx.getLog("LOGGER").info("  Found unique: "+this[i].toString());
+			tsmLogNums.push(this[i]);
+		}
+	 }	 
+	 
+	 ctx.getLog("LOGGER").info(" -- TSM INSTANCE NUMBER:: " + instanceNum + " --");
+	 
+	 
+     // set the correct Ish connection
+//     var conn = res.getConnection();
+//     if (undefined!=conn) {
+//       var type = conn.getType();
+//       ctx.getLog("LOGGER").info("Type:"+type);
+//       if (undefined!=type && type.equals(net.ipsoft.ipcenter.ipdiscover.domain.Connection.ConnectionType.Ish)) {
+//          ctx.getLog("LOGGER").info("Connection:"+conn);
+//          sc.setConnection(conn);
+          //// from here - if all good things are good.
+
+//       }
+//     }
+
+
+//   }  // end if - matching tsm log
+  } // end for - for each resource matching tsm log
+
+  
+  // for each instance, create a template and populate it. Use the mapped variable to set the log.
+
+for (var i = 0; i < tsmLogNums.length; i++){
+     var sc = serviceTemplate.newFromTemplate();
+     sc.bind('discover', res.getAttributes());
+     // The following removes illegal special chars from the service name and description
+     // The first ".replaceAll()" changes all non-standard chars into a single space
+     // The second ".replaceAll()" changes multiple whitespace into a single space
+     sc.setName(sc.getName().replaceAll("[^\\w\\s:\/-]", " ").replaceAll("\\s{2,}", " "));
+     sc.setDescription(sc.getDescription().replaceAll("[^\\w\\s:\/-]", " ").replaceAll("\\s{2,}", " "));
+     // End of special character cleanup code
+
+     var myMap = ctx.getMap();
+	 // this could get weird.. may need to escape the unix slashes.
+	 myMap.put("InstanceLog", "/tsm/TSM"+instanceNum+"/local/log/TSM"+instanceNum+"_event.log");
+     sc.bind("TivoliInstance", myMap);
+
+     resultList.add(sc);
+}// end for - service template creation
+
+//myMap.put("InstanceLog", "/tsm/TSM"+instanceNum+"/local/log/TSM"+instanceNum+"_event.log");
+//sc.bind("TivoliInstance", myMap);
+
+// Variable for command parameters should be " $$TivoliInstance::InstanceLog$$ "
+
+// pretty sure adding the results list from the tsmLogNum length is the right idea - one for each unique Tivoli instance.
+//resultList.add(sc);
